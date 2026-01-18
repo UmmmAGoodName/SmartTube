@@ -6,7 +6,7 @@ Public keys may have been compromised, which is why I am sharing this issue. You
 
 No extra actions are required since the app uses **one-time connection codes**. These codes have very limited permissions (for example, they cannot change your password). Still, you can revoke them if you want full peace of mind.
 
-# How to revoke access:
+## How to revoke access
 
 1. Open [myaccount.google.com/security](https://myaccount.google.com/security)
 2. Find **“Your connections to third-party apps & services”**
@@ -22,6 +22,10 @@ Please keep built-in security features enabled to stay protected.
 ![The app screenshot](./images/browse_home.png)
 
 SmartTube is a free and open-source advanced media player for Android TVs and TV boxes. It allows you to play content from various public sources.
+
+**Quick links:** [Installation](#installation) · [Official Site](https://smarttubeapp.github.io) · [Donation](#donation) · [FAQ](#faq) · [Support / Chat](#support) · [Build](#build) · [Translate the app](https://jtbrinkmann.de/tools/android-strings.xml-translator.html) · [Changelog](https://t.me/s/SmartTubeNewsEN) · [Liability](#liability)
+
+## Highlights
 
 ### ✅ Features
 - No ads  
@@ -43,8 +47,6 @@ SmartTube is a free and open-source advanced media player for Android TVs and TV
 Give it a try!
 
 **Do you have any question?** Ctrl+F or ⌘F this readme first!
-
-[**Installation**](#installation) | [**Official Site**](https://smarttubeapp.github.io) | [**Donation**](#donation) | [**FAQ**](#faq) | [Support / Chat](#support) | [Build](#build) | [Translate the app](https://jtbrinkmann.de/tools/android-strings.xml-translator.html) | [Changelog](https://t.me/s/SmartTubeNewsEN) | [Liability](#liability)
 
 
 ## Device support
@@ -160,12 +162,12 @@ Due to technical limitations, you need to open the app on the TV before casting;
 SmartTube supports playing videos in PiP mode. This needs to be enabled under _Settings > General > Background playback > Picture in picture_. The video will go into PiP mode when you press home while playing a video, and also when you press _back_ if enabled in _Settings > General > Background playback (activation)_.
 
 
-### Adjust Speed
+### Adjust speed
 
 You can adjust the playback speed pressing the speed-indicator icon (gauge) in the top row of the player. This is remembered across videos. Some speeds may case frame drops, this is a known issue.
 
 
-### Voice Search
+### Voice search
 
 To enable global voice search, an additional app must be installed alongside SmartTube. This _bridge app_ can intercept the System's attempts to open the original YouTube app and open SmartTube instead. For this to work, you must uninstall the original YouTube app. We know this sucks, but you can always reinstall it if you change your mind. The _bridge app_ will not show up in your launcher and you cannot launch it directly; it is only used internally by the system's voice search. On some devices, you need to explicitly say "Youtube" when searching (e.g. say "youtube cute cats" instead of just "cute cats").
 
