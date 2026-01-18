@@ -3,6 +3,8 @@ package com.liskovsoft.smartyoutubetv2.tv.ui.playback;
 import android.app.Activity;
 import android.os.Build.VERSION;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.support.v4.media.MediaMetadataCompat;
 import android.support.v4.media.session.MediaSessionCompat;
 import android.support.v4.media.session.PlaybackStateCompat;
@@ -30,6 +32,7 @@ import androidx.leanback.widget.Presenter;
 import androidx.leanback.widget.Row;
 import androidx.leanback.widget.RowPresenter;
 import androidx.leanback.widget.RowPresenter.ViewHolder;
+import android.widget.FrameLayout;
 
 import com.google.android.exoplayer2.ControlDispatcher;
 import com.google.android.exoplayer2.DefaultControlDispatcher;
@@ -81,6 +84,8 @@ import com.liskovsoft.smartyoutubetv2.tv.ui.widgets.chat.LiveChatView;
 import com.liskovsoft.smartyoutubetv2.tv.ui.widgets.time.DateTimeView;
 import com.liskovsoft.smartyoutubetv2.tv.ui.widgets.time.EndingTimeView;
 import com.liskovsoft.googlecommon.common.helpers.YouTubeHelper;
+import com.liskovsoft.smartyoutubetv2.tv.ui.playback.endscreen.EndscreenOverlayView;
+import com.liskovsoft.smartyoutubetv2.tv.ui.playback.cards.InfoCardsOverlayView;
 
 import java.io.InputStream;
 import java.util.HashMap;
@@ -142,6 +147,38 @@ public class PlaybackFragment extends SeekModePlaybackFragment implements Playba
         setupEventListeners();
     }
 
+    private EndscreenOverlayView mEndscreenOverlay;
+    private InfoCardsOverlayView mInfoCardsOverlay;
+
+    private FrameLayout mOverlayContainer; // where we attach the overlays
+    private final Handler mOverlayHandler = new Handler(Looper.getMainLooper());
+    private boolean mOverlayTickRunning;
+
+    private final Runnable mOverlayTick = new Runnable() {
+        @Override
+        public void run() {
+            if (!mOverlayTickRunning) return;
+
+            long pos = getPositionMs();
+            long dur = getDurationMs();
+
+            // 1) Update "i" indicator + panel
+            if (mInfoCardsOverlay != null) {
+                mInfoCardsOverlay.updateForPositionMs(pos);
+            }
+
+            // 2) Endscreen: simple rule (last 20 seconds)
+            if (mEndscreenOverlay != null) {
+                long start = (dur > 0) ? Math.max(0, dur - 20_000) : Long.MAX_VALUE;
+                if (pos >= start) mEndscreenOverlay.show();
+                else mEndscreenOverlay.hide();
+            }
+
+            mOverlayHandler.postDelayed(this, 250);
+        }
+    };
+
+
     @Override
     public void onActivityCreated(@Nullable Bundle savedInstanceState) {
         super.onActivityCreated(savedInstanceState);
@@ -161,8 +198,58 @@ public class PlaybackFragment extends SeekModePlaybackFragment implements Playba
         // ProgressBar.setRootView already called at this moment.
         ProgressBarManager.setup(getProgressBarManager(), (ViewGroup) root);
 
+        // Attach custom overlays on top of the player UI
+        View overlayWrapper = root.findViewById(R.id.player_overlay_wrapper);
+        if (overlayWrapper instanceof FrameLayout) {
+            mOverlayContainer = (FrameLayout) overlayWrapper;
+        } else if (root instanceof FrameLayout) {
+            // Fallback: use root if it's a FrameLayout
+            mOverlayContainer = (FrameLayout) root;
+        } else {
+            mOverlayContainer = null;
+        }
+
+        if (mOverlayContainer != null) {
+            // Create overlays once
+            if (mEndscreenOverlay == null) {
+                mEndscreenOverlay = new EndscreenOverlayView(requireContext());
+                mEndscreenOverlay.setListener(item -> {
+                    if (item != null && item.videoId != null) {
+                        mPlaybackPresenter.openVideo(item.videoId);
+                    }
+                });
+            }
+
+            if (mInfoCardsOverlay == null) {
+                mInfoCardsOverlay = new InfoCardsOverlayView(requireContext());
+                mInfoCardsOverlay.setListener(item -> {
+                    if (item != null && item.videoId != null) {
+                        mPlaybackPresenter.openVideo(item.videoId);
+                    }
+                });
+            }
+
+            // Ensure they’re attached only once
+            if (mEndscreenOverlay.getParent() == null) {
+                mOverlayContainer.addView(mEndscreenOverlay,
+                        new FrameLayout.LayoutParams(
+                                ViewGroup.LayoutParams.MATCH_PARENT,
+                                ViewGroup.LayoutParams.MATCH_PARENT
+                        ));
+            }
+
+            if (mInfoCardsOverlay.getParent() == null) {
+                mOverlayContainer.addView(mInfoCardsOverlay,
+                        new FrameLayout.LayoutParams(
+                                ViewGroup.LayoutParams.MATCH_PARENT,
+                                ViewGroup.LayoutParams.MATCH_PARENT
+                        ));
+            }
+        }
+
         return root;
     }
+
 
     @Override
     public void onSaveInstanceState(@NonNull Bundle outState) {
@@ -219,13 +306,13 @@ public class PlaybackFragment extends SeekModePlaybackFragment implements Playba
             initializePlayer();
         }
 
-        // NOTE: don't move this into another place! Multiple components rely on it.
         mPlaybackPresenter.onViewResumed();
+        showHideWidgets(true);
+        blockEngine(false);
 
-        showHideWidgets(true); // PIP mode fix
-        blockEngine(false); // reset bg mode
-        //ExoPlayerInitializer.enableAudioFocus(mPlayer, true); // Restore focus after PIP
+        startOverlayTick();
     }
+
 
     @Override
     public void onPause() {
@@ -240,11 +327,28 @@ public class PlaybackFragment extends SeekModePlaybackFragment implements Playba
 
         showHideWidgets(false); // PIP mode fix
         //ExoPlayerInitializer.enableAudioFocus(mPlayer, false); // Disable focus in PIP
+        stopOverlayTick();
+
     }
 
     public void onDispatchKeyEvent(KeyEvent event) {
-        // NOP
+        if (event == null) return;
+        if (event.getAction() != KeyEvent.ACTION_DOWN) return;
+
+        if (event.getKeyCode() == KeyEvent.KEYCODE_BACK) {
+            // Close endscreen first
+            if (mEndscreenOverlay != null && mEndscreenOverlay.isShowing()) {
+                mEndscreenOverlay.hide();
+                return;
+            }
+            // Close info panel
+            if (mInfoCardsOverlay != null && mInfoCardsOverlay.isPanelShowing()) {
+                mInfoCardsOverlay.togglePanel(false);
+                return;
+            }
+        }
     }
+
 
     public void onDispatchTouchEvent(MotionEvent event) {
         applyTickle(event);
@@ -338,6 +442,24 @@ public class PlaybackFragment extends SeekModePlaybackFragment implements Playba
             mRowsSupportFragment.getVerticalGridView().setSelectedPosition(index);
         }
     }
+
+    private void startOverlayTick() {
+        if (mOverlayTickRunning) return;
+        mOverlayTickRunning = true;
+        mOverlayHandler.removeCallbacks(mOverlayTick);
+        mOverlayHandler.post(mOverlayTick);
+    }
+
+    private void stopOverlayTick() {
+        mOverlayTickRunning = false;
+        mOverlayHandler.removeCallbacks(mOverlayTick);
+
+        // Hide overlays when leaving
+        if (mEndscreenOverlay != null) mEndscreenOverlay.hide();
+        if (mInfoCardsOverlay != null) mInfoCardsOverlay.togglePanel(false);
+    }
+
+
 
     @Override
     public void restartEngine() {
@@ -728,6 +850,14 @@ public class PlaybackFragment extends SeekModePlaybackFragment implements Playba
             mPlayerGlue.setSubtitle(video.getSecondTitleFull() != null ? createSubtitle(video) : "...");
             mPlayerGlue.setVideo(video);
         }
+        // Reset overlays when switching videos
+        if (mEndscreenOverlay != null) mEndscreenOverlay.hide();
+        if (mInfoCardsOverlay != null) mInfoCardsOverlay.togglePanel(false);
+
+    // TODO: setItems once you have them from presenter/video-info parsing
+    // mEndscreenOverlay.setItems(mappedEndscreenItems);
+    // mInfoCardsOverlay.setItems(mappedInfoCardItems);
+
     }
 
     @Override
