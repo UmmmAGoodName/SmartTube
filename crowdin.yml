@@ -1,3 +1,6 @@
+# Canonical Android string resources live in common/src/main/res/values/strings.xml.
+# Crowdin should only sync this source file and its translated counterparts under
+# common/src/main/res/values-*/strings.xml, excluding any other XML or build artifacts.
 files:
   - source: /common/src/main/res/values/strings.xml
     translation: /common/src/main/res/values-%android_code%/strings.xml

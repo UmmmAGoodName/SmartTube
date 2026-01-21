@@ -225,6 +225,10 @@ The international group is in **English only**. But don't worry if your English 
 
 SmartTube is developed single-handedly; there is no larger team or company behind this. This is an open source, hobby project. Several others have helped with translations, some of which can be seen on [Github](https://github.com/yuliskov/SmartTube/graphs/contributors), some have sent their translations directly to Yurii. There are also helpful people in the support chat.
 
+## Localization
+
+String resources are centralized in `common/src/main/res/values/strings.xml` (canonical source). Translations live exclusively in `common/src/main/res/values-*/strings.xml`, and Crowdin is configured to sync only these files so that non-localizable XML and build artifacts stay out of the localization pipeline. See `crowdin.yml` for the exact mapping.
+
 
 ## Build
     
