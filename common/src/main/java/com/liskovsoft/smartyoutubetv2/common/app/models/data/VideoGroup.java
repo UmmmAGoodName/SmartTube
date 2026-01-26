@@ -10,8 +10,9 @@ import com.liskovsoft.smartyoutubetv2.common.app.models.playback.service.VideoSt
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.ConcurrentModificationException;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 public class VideoGroup {
     /**
@@ -33,12 +34,14 @@ public class VideoGroup {
     private int mId;
     private String mTitle;
     private List<Video> mVideos;
+    private Set<String> mVideoIds;
     private MediaGroup mMediaGroup;
     private BrowseSection mSection;
     private int mPosition = -1;
     private int mAction = ACTION_APPEND;
     private int mType = -1;
     public boolean isQueue;
+    private final Object mLock = new Object();
 
     public static VideoGroup from(BrowseSection section) {
         return from((MediaGroup) null, section);
@@ -80,11 +83,13 @@ public class VideoGroup {
             videoGroup.mId = topItem.getGroup().getId();
             videoGroup.mTitle = topItem.getGroup().getTitle();
         }
-        videoGroup.mVideos = items;
+        videoGroup.mVideos = items != null ? new ArrayList<>(items) : new ArrayList<>();
+        videoGroup.mVideoIds = new HashSet<>();
+        videoGroup.rebuildVideoIds();
         videoGroup.mPosition = groupPosition;
         videoGroup.mSection = section;
 
-        for (Video item : items) {
+        for (Video item : videoGroup.mVideos) {
             // Section as playlist fix. Don't change the root.
             if (item.getGroup() == null || section != null) {
                 item.setGroup(videoGroup);
@@ -99,6 +104,7 @@ public class VideoGroup {
         videoGroup.mSection = section;
         videoGroup.mPosition = groupPosition;
         videoGroup.mVideos = new ArrayList<>();
+        videoGroup.mVideoIds = new HashSet<>();
         videoGroup.mMediaGroup = mediaGroup;
         videoGroup.mTitle = mediaGroup != null && mediaGroup.getTitle() != null ?
                 mediaGroup.getTitle() : section != null ? section.getTitle() : null;
@@ -172,6 +178,7 @@ public class VideoGroup {
         VideoGroup videoGroup = new VideoGroup();
         videoGroup.mTitle = title;
         videoGroup.mVideos = new ArrayList<>();
+        videoGroup.mVideoIds = new HashSet<>();
 
         for (ChapterItem chapter : chapters) {
             Video video = Video.from(chapter);
@@ -185,7 +192,9 @@ public class VideoGroup {
     public List<Video> getVideos() {
         // NOTE: Don't make the collection read only
         // The collection will be filtered inside VideoGroupObjectAdapter
-        return Collections.unmodifiableList(mVideos);
+        synchronized (mLock) {
+            return mVideos != null ? Collections.unmodifiableList(new ArrayList<>(mVideos)) : Collections.emptyList();
+        }
     }
 
     public String getTitle() {
@@ -220,13 +229,15 @@ public class VideoGroup {
     }
 
     public boolean isShorts() {
-        if (isEmpty()) {
-            return false;
-        }
+        synchronized (mLock) {
+            if (mVideos == null || mVideos.isEmpty()) {
+                return false;
+            }
 
-        for (int i = 0; i < Math.min(8, mVideos.size()); i++) {
-             if (!mVideos.get(i).isShorts)
-                 return false;
+            for (int i = 0; i < Math.min(8, mVideos.size()); i++) {
+                 if (!mVideos.get(i).isShorts)
+                     return false;
+            }
         }
 
         return true;
@@ -321,117 +332,135 @@ public class VideoGroup {
     }
 
     public void removeAllBefore(Video video) {
-        if (mVideos == null) {
-            return;
-        }
+        synchronized (mLock) {
+            if (mVideos == null) {
+                return;
+            }
 
-        removeAllBefore(mVideos.indexOf(video));
+            removeAllBefore(mVideos.indexOf(video));
+        }
     }
 
     public void removeAllBefore(int index) {
-        if (mVideos == null) {
-            return;
-        }
+        synchronized (mLock) {
+            if (mVideos == null) {
+                return;
+            }
 
-        if (index <= 0 || index >= mVideos.size()) {
-            return;
-        }
+            if (index <= 0 || index >= mVideos.size()) {
+                return;
+            }
 
-        mVideos = mVideos.subList(index, mVideos.size());
+            mVideos = new ArrayList<>(mVideos.subList(index, mVideos.size()));
+            rebuildVideoIds();
+        }
     }
 
     /**
      * Remove playlist id from all videos
      */
     public void stripPlaylistInfo() {
-        if (mVideos == null) {
-            return;
-        }
+        synchronized (mLock) {
+            if (mVideos == null) {
+                return;
+            }
 
-        for (Video video : mVideos) {
-            video.playlistId = null;
-            video.remotePlaylistId = null;
+            for (Video video : mVideos) {
+                video.playlistId = null;
+                video.remotePlaylistId = null;
+            }
         }
     }
 
     public Video findVideoById(String videoId) {
-        if (mVideos == null) {
-            return null;
-        }
-
-        Video result = null;
-
-        for (Video video : mVideos) {
-            if (Helpers.equals(videoId, video.videoId)) {
-                result = video;
-                break;
+        synchronized (mLock) {
+            if (mVideos == null) {
+                return null;
             }
-        }
 
-        return result;
+            Video result = null;
+
+            for (Video video : mVideos) {
+                if (Helpers.equals(videoId, video.videoId)) {
+                    result = video;
+                    break;
+                }
+            }
+
+            return result;
+        }
     }
 
     public void clear() {
-        if (mVideos == null) {
-            return;
-        }
+        synchronized (mLock) {
+            if (mVideos == null) {
+                return;
+            }
 
-        mVideos.clear();
+            mVideos.clear();
+            if (mVideoIds != null) {
+                mVideoIds.clear();
+            }
+        }
     }
 
     public boolean contains(Video video) {
-        if (mVideos == null) {
-            return false;
-        }
+        synchronized (mLock) {
+            if (mVideos == null) {
+                return false;
+            }
 
-        return mVideos.contains(video);
+            return mVideos.contains(video);
+        }
     }
 
     public int getSize() {
-        if (mVideos == null) {
-            return -1;
-        }
+        synchronized (mLock) {
+            if (mVideos == null) {
+                return -1;
+            }
 
-        return mVideos.size();
+            return mVideos.size();
+        }
     }
 
     public int indexOf(Video video) {
-        if (mVideos == null) {
-            return -1;
-        }
+        synchronized (mLock) {
+            if (mVideos == null) {
+                return -1;
+            }
 
-        return mVideos.indexOf(video);
+            return mVideos.indexOf(video);
+        }
     }
 
     public Video get(int idx) {
-        if (mVideos == null) {
-            return null;
-        }
+        synchronized (mLock) {
+            if (mVideos == null) {
+                return null;
+            }
 
-        return mVideos.get(idx);
+            return mVideos.get(idx);
+        }
     }
 
     public void remove(Video video) {
-        if (mVideos == null) {
-            return;
-        }
+        synchronized (mLock) {
+            if (mVideos == null) {
+                return;
+            }
 
-        try {
-            // ConcurrentModificationException fix?
-            mVideos.remove(video);
-        } catch (UnsupportedOperationException | ConcurrentModificationException e) { // read only collection
-            e.printStackTrace();
+            boolean removed = mVideos.remove(video);
+            if (removed) {
+                removeVideoId(video);
+            }
         }
     }
 
     public boolean isEmpty() {
-        try {
+        synchronized (mLock) {
             return mVideos == null || mVideos.isEmpty();
-        } catch (ConcurrentModificationException e) {
-            e.printStackTrace();
         }
-
-        return true;
     }
 
     public void add(Video video) {
@@ -439,12 +468,14 @@ public class VideoGroup {
         // Dirty hack for avoiding group duplication.
         // Duplicated items suddenly appeared in Home, Subscriptions and History.
         // See: VideoGroupObjectAdapter.mVideoItems
-        if (mVideos != null && mVideos.contains(video)) {
-            return;
-        }
+        synchronized (mLock) {
+            if (isDuplicateVideoId(video)) {
+                return;
+            }
 
-        int size = getSize();
-        add(size != -1 ? size : 0, video);
+            int size = getSize();
+            add(size != -1 ? size : 0, video);
+        }
     }
 
     public void add(int idx, Video video) {
@@ -452,20 +483,87 @@ public class VideoGroup {
             return;
         }
 
+        synchronized (mLock) {
+            if (isDuplicateVideoId(video)) {
+                return;
+            }
+
+            if (mVideos == null) {
+                mVideos = new ArrayList<>();
+            }
+            if (mVideoIds == null) {
+                mVideoIds = new HashSet<>();
+            }
+
+            // Group position in multi-grid fragments
+            video.groupPosition = mPosition;
+            video.setGroup(this);
+
+            VideoStateService stateService = VideoStateService.instance(null);
+            if (stateService != null && (video.percentWatched == -1 || video.percentWatched == 100)) {
+                State state = stateService.getByVideoId(video.videoId);
+                video.sync(state);
+            }
+
+            if (idx < 0 || idx > mVideos.size()) {
+                idx = mVideos.size();
+            }
+
+            mVideos.add(idx, video);
+            trackVideoId(video);
+        }
+    }
+
+    private void rebuildVideoIds() {
+        if (mVideoIds == null) {
+            mVideoIds = new HashSet<>();
+        } else {
+            mVideoIds.clear();
+        }
+
         if (mVideos == null) {
-            mVideos = new ArrayList<>();
+            return;
         }
 
-        // Group position in multi-grid fragments
-        video.groupPosition = mPosition;
-        video.setGroup(this);
+        for (Video video : mVideos) {
+            trackVideoId(video);
+        }
+    }
 
-        VideoStateService stateService = VideoStateService.instance(null);
-        if (stateService != null && (video.percentWatched == -1 || video.percentWatched == 100)) {
-            State state = stateService.getByVideoId(video.videoId);
-            video.sync(state);
+    private boolean isDuplicateVideoId(Video video) {
+        if (video == null) {
+            return false;
         }
 
-        mVideos.add(idx, video);
+        String videoId = video.videoId;
+        return videoId != null && mVideoIds != null && mVideoIds.contains(videoId);
+    }
+
+    private void trackVideoId(Video video) {
+        if (video == null) {
+            return;
+        }
+
+        String videoId = video.videoId;
+        if (videoId == null) {
+            return;
+        }
+
+        if (mVideoIds == null) {
+            mVideoIds = new HashSet<>();
+        }
+
+        mVideoIds.add(videoId);
+    }
+
+    private void removeVideoId(Video video) {
+        if (video == null || mVideoIds == null) {
+            return;
+        }
+
+        String videoId = video.videoId;
+        if (videoId != null) {
+            mVideoIds.remove(videoId);
+        }
     }
 }
