@@ -39,6 +39,9 @@ buildscript {
 // (github.com/yuliskov/...) outside this repo's write access, so their build.gradle files can't
 // be edited directly from here. Inject their namespace from this repo's root build.gradle instead
 // - this only touches files inside the SmartTube repo itself.
+// NOTE: must use plugins.withId(...), not afterEvaluate - AGP validates namespace as soon as the
+// android-library plugin applies (registering its own afterEvaluate check at that point), which
+// runs before an afterEvaluate hook registered externally from root would fire.
 [
     ':sharedutils'          : 'com.liskovsoft.sharedutils',
     ':sharedtests'          : 'com.liskovsoft.sharedtests',
@@ -49,11 +52,8 @@ buildscript {
     ':youtubeapi'           : 'com.liskovsoft.youtubeapi',
 ].each { path, ns ->
     gradle.projectsLoaded {
-        rootProject.project(path).afterEvaluate { proj ->
-            def androidExt = proj.extensions.findByName('android')
-            if (androidExt != null && androidExt.namespace == null) {
-                androidExt.namespace = ns
-            }
+        rootProject.project(path).plugins.withId('com.android.library') {
+            rootProject.project(path).android.namespace = ns
         }
     }
 }
