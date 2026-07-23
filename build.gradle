@@ -11,6 +11,19 @@ wrapper {
 buildscript {
     apply from: gradle.ext.sharedModulesConstants
 
+    // --- SmartTube Compose-for-TV / Media3 migration override ---
+    // SharedModules/constants.gradle is a read-only upstream submodule (github.com/yuliskov/SharedModules);
+    // override just the value this migration needs locally instead of forking it.
+    // Upstream kotlinVersion (1.8.10) predates the Kotlin 2.0+ Compose Compiler Gradle plugin required
+    // by Jetpack Compose for TV. Bumping it project-wide is low risk today: only ~8 .kt files exist
+    // (all in :doubletapplayerview and :common), and root build.gradle already forces kotlin-stdlib
+    // resolution off this same variable below. Verify latest stable Kotlin 2.x before shipping:
+    // https://kotlinlang.org/docs/releases.html
+    // Set in both scopes (here, before this buildscript's own classpath deps read it, and again
+    // below at the project level) so the override holds regardless of Gradle's evaluation order
+    // between this block and the plain top-level `apply from` a few lines up.
+    project.ext.kotlinVersion = '2.0.21'
+
     repositories {
         google()
         mavenCentral()
@@ -26,6 +39,10 @@ buildscript {
         // in the individual module build.gradle files
     }
 }
+
+// Reasserts the same override at the top-level project scope (see comment above) in case this
+// runs after the buildscript block during Gradle's evaluation.
+project.ext.kotlinVersion = '2.0.21'
 
 allprojects {
     repositories {

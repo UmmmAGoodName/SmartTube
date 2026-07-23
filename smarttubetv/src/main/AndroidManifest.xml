@@ -20,17 +20,40 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
 
+    <!-- Migration note: entries below let libraries whose own minSdk (23) is higher than this
+         app's minSdk (17) still link into the APK. They only actually run on devices that meet
+         their real floor once the corresponding Track A/B migration phase gates them behind a
+         Build.VERSION.SDK_INT check - devices on API 17-22 stay on the legacy Leanback/ExoPlayer2
+         path. NOTE: the exact package names below (from the artifacts' own AndroidManifest.xml)
+         are our best-known values, not build-verified here - if a real build reports a different
+         manifest merger conflict, add/adjust entries to match the exact error. -->
     <uses-sdk tools:overrideLibrary="
         androidx.leanback.preference,
         androidx.recommendation,
-        androidx.leanback, 
+        androidx.leanback,
         androidx.tvprovider,
         com.google.android.exoplayer2.ext.leanback,
         com.google.android.exoplayer2.ext.vp9,
         com.google.android.exoplayer2.testutil,
         com.google.android.exoplayer2.ext.okhttp,
         com.google.firebase.crashlytics,
-        com.google.firebase.iid"/>
+        com.google.firebase.iid,
+        androidx.media3.exoplayer,
+        androidx.media3.exoplayer.dash,
+        androidx.media3.exoplayer.hls,
+        androidx.media3.ui,
+        androidx.media3.datasource.okhttp,
+        androidx.media3.common,
+        androidx.media3.database,
+        androidx.media3.decoder,
+        androidx.media3.extractor,
+        androidx.media3.datasource,
+        androidx.compose.ui,
+        androidx.compose.foundation,
+        androidx.compose.runtime,
+        androidx.activity.compose,
+        androidx.tv.foundation,
+        androidx.tv.material3"/>
 
     <uses-feature
         android:name="android.hardware.microphone"

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Compose for TV migration toolchain spike (Track B, Phase C0). Debug-build-only launcher
+         entry (this source set only merges into *Debug variants), so it never reaches a release
+         APK. Remove once Track B's real screen migrations are underway and this has served its
+         purpose of proving the ComposeView/ComponentActivity + tv-material + D-pad focus story
+         on real hardware (see plan: fizzy-waddling-hamster.md). -->
+    <application>
+        <activity
+            android:name="com.liskovsoft.smartyoutubetv2.tv.ui.compose.debug.ComposeSpikeActivity"
+            android:exported="true"
+            android:label="Compose TV Spike (debug)">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+
+</manifest>

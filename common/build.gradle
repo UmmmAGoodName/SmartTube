@@ -83,6 +83,20 @@ dependencies {
 
     //////// END EXOPLAYER //////////
 
+    //////// BEGIN MEDIA3 (new player stack, migration Track A) /////////
+    // Added but not wired up yet (Phase M0): coexists with the exoplayer-amzn-2.10.6 fork above.
+    // Runtime code will only instantiate these classes on API 23+ once the M1 PlayerController
+    // interface/factory lands (androidx.media3 raised its own minSdk to 23 as of 1.9.0, see
+    // <uses-sdk tools:overrideLibrary=.../> in smarttubetv/src/main/AndroidManifest.xml).
+    // Verify latest stable release before shipping: https://developer.android.com/jetpack/androidx/releases/media3
+    def media3Version = '1.10.1'
+    implementation 'androidx.media3:media3-exoplayer:' + media3Version
+    implementation 'androidx.media3:media3-exoplayer-dash:' + media3Version
+    implementation 'androidx.media3:media3-exoplayer-hls:' + media3Version
+    implementation 'androidx.media3:media3-ui:' + media3Version
+    implementation 'androidx.media3:media3-datasource-okhttp:' + media3Version
+    //////// END MEDIA3 //////////
+
     implementation 'androidx.media:media:' + mediaXVersion // exoplayer fix
 
     implementation 'com.github.bumptech.glide:glide:' + glideVersion
