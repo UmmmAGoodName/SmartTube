@@ -58,6 +58,8 @@ if (new File("${projectDir}/google-services.json").exists() && (getGradle().getS
 }
 
 android {
+    namespace 'com.liskovsoft.smartyoutubetv2.tv'
+
     // FIX: Default interface methods are only supported starting with Android N (--min-api 24)
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8

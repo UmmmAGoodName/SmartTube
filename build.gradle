@@ -19,11 +19,42 @@ buildscript {
         //jcenter()
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:7.4.2'
+        // AGP bump (Compose-for-TV migration prerequisite): 7.4.2 predates the compatibility
+        // rules AGP needs to disambiguate Compose UI's Kotlin-Multiplatform-published variants
+        // (androidRuntimeElements vs jvmStubsRuntimeElements) - resolution fails on literally any
+        // current Compose version under 7.4.2. Verify latest stable AGP/Gradle pairing before
+        // shipping: https://developer.android.com/build/releases/gradle-plugin#updating-gradle
+        classpath 'com.android.tools.build:gradle:8.6.1'
         classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:' + kotlinVersion
 
         // NOTE: Do not place your application dependencies here; they belong
         // in the individual module build.gradle files
+    }
+}
+
+// AGP 8+ turns the (previously just deprecated-warning) manifest `package=` attribute into a
+// hard "specify a namespace" build error for any module missing an explicit `namespace` in its
+// android {} block. sharedutils/sharedtests/appupdatechecker2/commons-io-2.8.0 (SharedModules)
+// and mediaserviceinterfaces/youtubeapi (MediaServiceCore) are upstream git submodules
+// (github.com/yuliskov/...) outside this repo's write access, so their build.gradle files can't
+// be edited directly from here. Inject their namespace from this repo's root build.gradle instead
+// - this only touches files inside the SmartTube repo itself.
+[
+    ':sharedutils'          : 'com.liskovsoft.sharedutils',
+    ':sharedtests'          : 'com.liskovsoft.sharedtests',
+    ':appupdatechecker2'    : 'com.liskovsoft.appupdatechecker2',
+    ':commons-io-2.8.0'     : 'org.apache.commons.commonsio',
+    ':j2v8'                 : 'com.eclipsesource.v8',
+    ':mediaserviceinterfaces': 'com.liskovsoft.mediaserviceinterfaces',
+    ':youtubeapi'           : 'com.liskovsoft.youtubeapi',
+].each { path, ns ->
+    gradle.projectsLoaded {
+        rootProject.project(path).afterEvaluate { proj ->
+            def androidExt = proj.extensions.findByName('android')
+            if (androidExt != null && androidExt.namespace == null) {
+                androidExt.namespace = ns
+            }
+        }
     }
 }
 
