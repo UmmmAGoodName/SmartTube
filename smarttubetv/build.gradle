@@ -21,11 +21,19 @@ buildscript {
         classpath 'com.google.firebase:firebase-crashlytics-gradle:2.7.1'
 
         // Compose for TV migration (Track B, Phase C0): Kotlin plugin + Compose Compiler
-        // Gradle plugin. Since Kotlin 2.0, the Compose compiler ships in lockstep with the
-        // Kotlin compiler (see root build.gradle's kotlinVersion override), so no separate
-        // composeOptions.kotlinCompilerExtensionVersion is needed below.
-        classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:' + kotlinVersion
-        classpath 'org.jetbrains.kotlin:compose-compiler-gradle-plugin:' + kotlinVersion
+        // Gradle plugin. Deliberately NOT using the shared `kotlinVersion` (1.8.10, from the
+        // read-only SharedModules/constants.gradle submodule) here - bumping that constant
+        // project-wide previously broke :sharedutils and :youtubeapi (upstream submodules we
+        // don't own) because every module inherits its Kotlin plugin classpath from root's
+        // buildscript unless it declares its own, like this one does. Pinning the newer version
+        // only in this local classpath (Gradle's default "highest version wins" conflict
+        // resolution applies per-project) scopes Kotlin 2.x to :smarttubetv alone; every other
+        // module keeps compiling against 1.8.10 exactly as before.
+        // Since Kotlin 2.0, the Compose compiler ships in lockstep with the Kotlin compiler, so
+        // no separate composeOptions.kotlinCompilerExtensionVersion is needed below.
+        def composeKotlinVersion = '2.0.21'
+        classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:' + composeKotlinVersion
+        classpath 'org.jetbrains.kotlin:compose-compiler-gradle-plugin:' + composeKotlinVersion
     }
 }
 
